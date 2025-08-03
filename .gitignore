@@ -1,0 +1,75 @@
+# ------------------------
+# Node.js
+# ------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+
+# Local env files
+.env
+.env.*
+
+# Next.js or build tools
+.next/
+dist/
+build/
+.cache/
+
+# VSCode
+.vscode/
+
+# ------------------------
+# Python
+# ------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python environment
+.env/
+.venv/
+env/
+venv/
+ENV/
+Pipfile.lock
+poetry.lock
+
+# Python logs and temp
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# mypy & pyright type checker
+.mypy_cache/
+.pyright/
+.pyre/
+
+# Unit test / coverage
+.coverage
+.cache/
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+__pypackages__/
+
+# ------------------------
+# System & IDE
+# ------------------------
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+*.DS_Store
