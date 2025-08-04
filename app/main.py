@@ -405,6 +405,195 @@ async def process_document_with_provider(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/rag/process_folder", tags=["Document Processing"], summary="Process all documents in a folder", description="Process and analyze all PDF documents in a specified folder for a case")
+async def process_folder(
+    folder_path: str = Form(..., description="Path to folder containing PDF documents"),
+    case_id: str = Form(..., description="Case ID to associate the documents with"),
+    provider: str = Form(default="ollama", description="LLM provider: ollama or openai"),
+    model: str = Form(default="mistral", description="Model name for the LLM provider"),
+    base_url: Optional[str] = Form(default=None, description="Base URL for Ollama (optional)"),
+    api_key: Optional[str] = Form(default=None, description="API key for OpenAI (optional)"),
+    temperature: float = Form(default=0.0, description="Temperature for LLM generation")
+):
+    """Process all PDF documents in a folder for a case"""
+    try:
+        if not case_id:
+            raise HTTPException(status_code=400, detail="case_id is required")
+        
+        if not folder_path:
+            raise HTTPException(status_code=400, detail="folder_path is required")
+        
+        # Validate folder path
+        if not os.path.exists(folder_path):
+            raise HTTPException(status_code=400, detail=f"Folder path does not exist: {folder_path}")
+        
+        if not os.path.isdir(folder_path):
+            raise HTTPException(status_code=400, detail=f"Path is not a directory: {folder_path}")
+        
+        # Create LLM configuration from form arguments
+        llm_config = LLMConfig(
+            provider=LLMProvider(provider),
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            temperature=temperature
+        )
+        
+        # Create document processor with custom LLM configuration
+        custom_doc_processor = LegalDocumentProcessor(llm_config)
+        
+        # Find all PDF files in the folder
+        pdf_files = []
+        for file in os.listdir(folder_path):
+            if file.lower().endswith('.pdf'):
+                pdf_files.append(os.path.join(folder_path, file))
+        
+        if not pdf_files:
+            raise HTTPException(status_code=400, detail=f"No PDF files found in folder: {folder_path}")
+        
+        # Process all documents
+        results = []
+        errors = []
+        
+        for pdf_file in pdf_files:
+            try:
+                # Process document
+                doc_result = await custom_doc_processor.process_document(pdf_file, case_id)
+                
+                results.append({
+                    "file_name": os.path.basename(pdf_file),
+                    "file_path": pdf_file,
+                    "document_id": doc_result.id,
+                    "case_id": doc_result.case_id,
+                    "metadata": doc_result.metadata,
+                    "chunks_count": len(doc_result.chunks),
+                    "processing_status": "completed",
+                    "llm_provider": provider,
+                    "llm_model": model
+                })
+                
+            except Exception as e:
+                errors.append({
+                    "file_name": os.path.basename(pdf_file),
+                    "file_path": pdf_file,
+                    "error": str(e),
+                    "processing_status": "failed"
+                })
+        
+        return {
+            "case_id": case_id,
+            "folder_path": folder_path,
+            "total_files": len(pdf_files),
+            "successful_processing": len(results),
+            "failed_processing": len(errors),
+            "results": results,
+            "errors": errors,
+            "summary": {
+                "total_chunks": sum(r["chunks_count"] for r in results),
+                "llm_provider": provider,
+                "llm_model": model,
+                "processing_completed": True
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/rag/process_folder_json", tags=["Document Processing"], summary="Process folder with JSON request", description="Process all PDF documents in a folder using JSON request format")
+async def process_folder_json(request: Request):
+    """Process all PDF documents in a folder using JSON request"""
+    try:
+        body = await request.json()
+        folder_path = body.get("folder_path", "")
+        case_id = body.get("case_id", "")
+        provider = body.get("provider", "ollama")
+        model = body.get("model", "mistral")
+        base_url = body.get("base_url")
+        api_key = body.get("api_key")
+        temperature = body.get("temperature", 0.0)
+        
+        if not case_id:
+            raise HTTPException(status_code=400, detail="case_id is required")
+        
+        if not folder_path:
+            raise HTTPException(status_code=400, detail="folder_path is required")
+        
+        # Validate folder path
+        if not os.path.exists(folder_path):
+            raise HTTPException(status_code=400, detail=f"Folder path does not exist: {folder_path}")
+        
+        if not os.path.isdir(folder_path):
+            raise HTTPException(status_code=400, detail=f"Path is not a directory: {folder_path}")
+        
+        # Create LLM configuration
+        llm_config = LLMConfig(
+            provider=LLMProvider(provider),
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            temperature=temperature
+        )
+        
+        # Create document processor
+        custom_doc_processor = LegalDocumentProcessor(llm_config)
+        
+        # Find all PDF files in the folder
+        pdf_files = []
+        for file in os.listdir(folder_path):
+            if file.lower().endswith('.pdf'):
+                pdf_files.append(os.path.join(folder_path, file))
+        
+        if not pdf_files:
+            raise HTTPException(status_code=400, detail=f"No PDF files found in folder: {folder_path}")
+        
+        # Process all documents
+        results = []
+        errors = []
+        
+        for pdf_file in pdf_files:
+            try:
+                # Process document
+                doc_result = await custom_doc_processor.process_document(pdf_file, case_id)
+                
+                results.append({
+                    "file_name": os.path.basename(pdf_file),
+                    "file_path": pdf_file,
+                    "document_id": doc_result.id,
+                    "case_id": doc_result.case_id,
+                    "metadata": doc_result.metadata,
+                    "chunks_count": len(doc_result.chunks),
+                    "processing_status": "completed",
+                    "llm_provider": provider,
+                    "llm_model": model
+                })
+                
+            except Exception as e:
+                errors.append({
+                    "file_name": os.path.basename(pdf_file),
+                    "file_path": pdf_file,
+                    "error": str(e),
+                    "processing_status": "failed"
+                })
+        
+        return {
+            "case_id": case_id,
+            "folder_path": folder_path,
+            "total_files": len(pdf_files),
+            "successful_processing": len(results),
+            "failed_processing": len(errors),
+            "results": results,
+            "errors": errors,
+            "summary": {
+                "total_chunks": sum(r["chunks_count"] for r in results),
+                "llm_provider": provider,
+                "llm_model": model,
+                "processing_completed": True
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process folder: {str(e)}")
+
 @app.post("/mcp/generate_demand_letter", tags=["Document Generation"], summary="Generate demand letter", description="Generate a demand letter using RAG and case data")
 async def generate_demand_letter(
     case_id: str = Query(..., description="Case ID to generate letter for"),

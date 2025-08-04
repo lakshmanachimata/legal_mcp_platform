@@ -11,7 +11,11 @@ import {
   Building2,
   User,
   DollarSign,
-  Calendar
+  Calendar,
+  MessageSquare,
+  FileSearch,
+  BookOpen,
+  Database
 } from 'lucide-react';
 
 function App() {
@@ -357,6 +361,182 @@ function App() {
     );
   };
 
+  const MCPQuery = () => {
+    const [selectedQuery, setSelectedQuery] = useState('');
+    const [customQuery, setCustomQuery] = useState('');
+    const [mcpResponse, setMcpResponse] = useState('');
+    const [isQuerying, setIsQuerying] = useState(false);
+    const [queryError, setQueryError] = useState('');
+
+    const mcpQueries = [
+      {
+        id: 'legal.query',
+        name: 'Legal Document Query',
+        description: 'Query legal documents using RAG',
+        icon: <FileSearch className="w-4 h-4" />,
+        placeholder: 'What are the medical expenses for this case?',
+        params: { query: '', case_id: caseId, context: {} }
+      },
+      {
+        id: 'legal.analyze_document',
+        name: 'Document Analysis',
+        description: 'Analyze and process legal documents',
+        icon: <BookOpen className="w-4 h-4" />,
+        placeholder: 'Analyze the medical records for liability factors',
+        params: { file_path: '', case_id: caseId }
+      },
+      {
+        id: 'legal.generate_demand_letter',
+        name: 'Generate Demand Letter',
+        description: 'Generate demand letter using RAG and case data',
+        icon: <MessageSquare className="w-4 h-4" />,
+        placeholder: 'Generate a demand letter for this case',
+        params: { case_id: caseId, template_type: 'demand_letter', additional_context: {} }
+      },
+      {
+        id: 'legal.get_case_context',
+        name: 'Get Case Context',
+        description: 'Get comprehensive case context',
+        icon: <Database className="w-4 h-4" />,
+        placeholder: 'Get all case information and context',
+        params: { case_id: caseId }
+      }
+    ];
+
+    const submitMCPQuery = async () => {
+      if (!selectedQuery) return;
+      
+      setIsQuerying(true);
+      setQueryError('');
+      setMcpResponse('');
+      
+      try {
+        const selectedQueryData = mcpQueries.find(q => q.id === selectedQuery);
+        
+        let params = { ...selectedQueryData.params };
+        
+        // Add custom query if provided
+        if (customQuery.trim() && selectedQuery === 'legal.query') {
+          params.query = customQuery;
+        }
+        
+        const response = await axios.post('http://localhost:8000/mcp/query', {
+          method: selectedQuery,
+          params: params
+        });
+        
+        if (response.data.result) {
+          setMcpResponse(JSON.stringify(response.data.result, null, 2));
+        } else {
+          setMcpResponse('No result returned');
+        }
+      } catch (err) {
+        setQueryError(err.response?.data?.detail || 'Failed to execute MCP query');
+      } finally {
+        setIsQuerying(false);
+      }
+    };
+
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-legal-800 mb-4 flex items-center">
+          <MessageSquare className="w-5 h-5 mr-2" />
+          MCP Query Interface
+        </h3>
+        
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-legal-700 mb-2">
+            Select MCP Query Type
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {mcpQueries.map((query) => (
+              <button
+                key={query.id}
+                onClick={() => {
+                  setSelectedQuery(query.id);
+                  setCustomQuery('');
+                  setMcpResponse('');
+                  setQueryError('');
+                }}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  selectedQuery === query.id
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-legal-200 bg-white text-legal-700 hover:border-primary-300 hover:bg-primary-50'
+                }`}
+              >
+                <div className="flex items-center mb-2">
+                  {query.icon}
+                  <span className="ml-2 font-medium">{query.name}</span>
+                </div>
+                <div className="text-sm text-legal-600">{query.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {selectedQuery && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-legal-700 mb-2">
+              Custom Query (for legal.query)
+            </label>
+            <textarea
+              value={customQuery}
+              onChange={(e) => setCustomQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-legal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder={mcpQueries.find(q => q.id === selectedQuery)?.placeholder || "Enter your query..."}
+              rows={3}
+            />
+          </div>
+        )}
+        
+        <button
+          onClick={submitMCPQuery}
+          disabled={isQuerying || !selectedQuery}
+          className="w-full bg-primary-600 text-white py-3 px-4 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {isQuerying ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Executing MCP Query...
+            </>
+          ) : (
+            <>
+              <MessageSquare className="w-5 h-5 mr-2" />
+              Execute {selectedQuery ? mcpQueries.find(q => q.id === selectedQuery)?.name : 'MCP Query'}
+            </>
+          )}
+        </button>
+        
+        {queryError && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+              <span className="text-red-700">{queryError}</span>
+            </div>
+          </div>
+        )}
+        
+        {mcpResponse && (
+          <div className="mt-6">
+            <h4 className="text-lg font-medium text-legal-800 mb-4">MCP Response</h4>
+            <div className="bg-legal-50 border border-legal-200 rounded-md p-6">
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <span className="text-sm font-medium text-green-800">
+                  Executed: {selectedQuery}
+                </span>
+              </div>
+              <div className="bg-white border border-legal-200 rounded-md p-4">
+                <pre className="whitespace-pre-wrap font-mono text-sm text-legal-800 overflow-x-auto">
+                  {mcpResponse}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-legal-100">
       <div className="container mx-auto px-4 py-8">
@@ -431,6 +611,21 @@ function App() {
                   <Search className="w-4 h-4 mr-2 inline" />
                   RAG Query
                 </button>
+                <button
+                  onClick={() => setActiveTab('mcp')}
+                  disabled={!caseData}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'mcp'
+                      ? 'bg-white text-legal-900 shadow-sm'
+                      : !caseData
+                      ? 'text-legal-400 cursor-not-allowed'
+                      : 'text-legal-600 hover:text-legal-900'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2 inline" />
+                  MCP Queries
+                  {!caseData && <span className="ml-1 text-xs">(No Case)</span>}
+                </button>
               </div>
             </div>
 
@@ -445,6 +640,16 @@ function App() {
               </div>
             )}
             {activeTab === 'query' && <RAGQuery />}
+            {activeTab === 'mcp' && caseData && <MCPQuery />}
+            {activeTab === 'mcp' && !caseData && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-legal-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-legal-700 mb-2">Case Not Found</h3>
+                  <p className="text-legal-600">Please select a valid case to use MCP queries.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
